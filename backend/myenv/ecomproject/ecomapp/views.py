@@ -2,6 +2,8 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .products import products
+from .models import Member
+from django.db import connection
 
 # Create your views here.
 
@@ -66,3 +68,138 @@ def getCartItems(request):
 def removeCartItem(request, cart_item_id):
     print("Removing cart item with ID:", cart_item_id)
     return Response(f"Cart item with ID {cart_item_id} was removed")
+
+
+@api_view(["POST"])
+def postMembers(request):
+    data = request.data
+    print("Member Data:", data)
+    
+    try:
+        # Create and save member to database
+        member = Member.objects.create(
+            name=data.get('name'),
+            email=data.get('email'),
+            status=data.get('status')
+        )
+        return Response({
+            "message": "Member was added successfully",
+            "member_id": member.id
+        })
+    except Exception as e:
+        return Response({
+            "error": str(e)
+        }, status=400)
+
+
+@api_view(["GET"])
+def getMembers(request):
+    all_items = Member.objects.all()
+    members = []
+    for item in all_items:
+        members.append({
+            "id": item.id,
+            "name": item.name,
+            "email": item.email,
+            "status": item.status,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at,
+        })
+    return Response(members)
+
+@api_view(["GET"])
+def getMember(request, member_id):
+    try:
+        member = Member.objects.get(id=member_id)
+        return Response({
+            "status": "success",
+            "member":{
+                "id": member.id,
+                "name": member.name,
+                "email": member.email,
+                "status": member.status,
+                "created_at": member.created_at,
+                "updated_at": member.updated_at,
+            },
+            "message": "Member retrieved successfully"
+        })
+    except Member.DoesNotExist:
+        return Response({
+            "status": "failed",
+            "message": "Member not found"
+        }, status=404)
+        
+@api_view(["DELETE"])
+def deleteMember(request, member_id):
+    try:
+        member = Member.objects.get(id=member_id)
+        member.delete()
+        return Response({
+            "status": "success",
+            "message": "Member deleted successfully"
+        })
+    except Member.DoesNotExist:
+        return Response({
+            "status": "failed",
+            "message": "Member not found"
+        }, status=404)
+        
+@api_view(["PUT"])
+def updateMember(request, member_id):
+    data = request.data
+    try:
+        member = Member.objects.get(id=member_id)
+        member.name = data.get('name', member.name)
+        member.email = data.get('email', member.email)
+        member.status = data.get('status', member.status)
+        member.save()
+        return Response({
+            "status": "success",
+            "message": "Member updated successfully"
+        })
+    except Member.DoesNotExist:
+        return Response({
+            "status": "failed",
+            "message": "Member not found"
+        }, status=404)
+        
+@api_view(["PATCH"])
+def partialUpdateMember(request, member_id):
+    data = request.data
+    try:
+        member = Member.objects.get(id=member_id)
+        if 'name' in data:
+            member.name = data['name']
+        if 'email' in data:
+            member.email = data['email']
+        if 'status' in data:
+            member.status = data['status']
+        member.save()
+        return Response({
+            "status": "success",
+            "message": "Member partially updated successfully"
+        })
+        
+    except Member.DoesNotExist:
+        return Response({
+            "status": "failed",
+            "message": "Member not found"
+        }, status=404)
+
+
+@api_view(["GET"])
+def getMembersWithStatus(request):
+    """Run raw SQL JOIN between ecomapp_member and ecomapp_status and return rows as JSON."""
+    sql = """
+        SELECT m.id, m.email, m.name, s.status AS current_status, m.status, m.created_at, m.updated_at
+        FROM ecomapp_member m
+        INNER JOIN ecomapp_status s ON m.status = s.status_id
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        columns = [col[0] for col in cursor.description]
+        rows = cursor.fetchall()
+
+    results = [dict(zip(columns, row)) for row in rows]
+    return Response(results)
+        
