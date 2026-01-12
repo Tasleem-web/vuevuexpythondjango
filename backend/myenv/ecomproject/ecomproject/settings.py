@@ -32,8 +32,14 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-w^hj@msawusah=x&rf$5je&(9p
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
+# Allowed hosts configuration
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-
+ 
+# Add Render.com URL if RENDER environment variable exists
+if 'RENDER' in os.environ:
+    ALLOWED_HOSTS.append(os.environ.get('RENDER_EXTERNAL_HOSTNAME'))
+    if 'onrender.com' not in str(ALLOWED_HOSTS):
+        ALLOWED_HOSTS.append('*.onrender.com')
 
 # Application definition
 
